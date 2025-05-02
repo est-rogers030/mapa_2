@@ -1,0 +1,511 @@
+library(shiny)
+library(highcharter)
+library(lubridate)
+library(tidyverse)
+library(shinydashboard)
+library(shinyWidgets)
+library(googlesheets4)
+library(shinydashboardPlus)
+library(leaflet)
+library(leaflet.extras)
+library(htmltools)
+library(sf)
+library(datasets)
+library(shinyjs)
+library(DT)
+library(ggplot2)
+library(dplyr)
+
+# Cargar datos
+load("arch_shape.RData")
+load("arch_ubicaciones.RData")
+load("Informes.RData")
+load("resumen_datos.RData")
+load("datos_resumen.RData")
+load("res_productos.RData")
+load("res_saldo.RData")
+load("Personas_Juridicas.RData")
+load("Personas_Juridicas_Transacciones.RData")
+load("dpf_pj.RData")
+
+# Iconos
+personas <- tags$i(class = "fa fa-users", style = "color: white")
+agencia <- tags$i(class = "fa fa-university", style = "color: white")
+
+# Header
+header <- dashboardHeader(title = "Riesgos", titleWidth = 250)
+
+# Sidebar
+sidebar <- dashboardSidebar(
+  width = 250,
+  sidebarMenu(
+    id = 'sidebar',
+    menuItem("Datos de Cabecera", tabName = 'menu_1', icon = icon("table")),
+    menuItem("Clientes y Saldos", tabName = 'menu_2', icon = icon("money")),
+    menuItem("Documentos de Clientes", tabName = 'menu_3', icon = icon("list"))
+  )
+)
+
+# Body
+body <- dashboardBody(
+  useShinyjs(),
+  tags$head(tags$style(HTML('
+    .small-box.bg-purple { background-color: #56147DFF !important; color: white !important; }
+    .skin-purple .main-header .logo { background-color: #56147DFF; }
+    .skin-purple .main-header .logo:hover { background-color: #56147DFF; }
+    .skin-purple .main-header .navbar { background-color: #56147DFF; }
+    .skin-purple .main-sidebar { background-color: #56147DFF; }
+    .small-box.bg-navy { background-color: #56147DFF !important; color: #56147DFF}
+    .box.box-solid.box-primary>.box-header { color: white; background:#56147DFF; }
+    .box.box-solid.box-primary { color: #56147DFF; border-color: #56147DFF; }
+    .btn-primary { background-color: #56147DFF; border-color: #56147DFF; }
+    .text-muted { color: white; }
+    .selected { background-color: orange !important; }
+    .bg-aqua { background-color: #fff !important; }
+  '))),
+  tabItems(
+    # Pestaña 1: Datos de Cabecera
+    tabItem(tabName = 'menu_1',
+            fluidRow(
+              box(solidHeader = FALSE, title = "Tasa de ROS e Inusuales", background = NULL, width = 5, status = "warning",
+                  fluidRow(
+                    column(width = 6, valueBoxOutput("progressBox", width = 12)),
+                    column(width = 6, valueBoxOutput("progressInus", width = 12))
+                  )
+              ),
+              box(solidHeader = FALSE, title = "Clasificación de clientes", background = NULL, width = 7, status = "warning",
+                  fluidRow(
+                    column(width = 3, valueBoxOutput("box_1", width = 12)),
+                    column(width = 3, valueBoxOutput("box_2", width = 12)),
+                    column(width = 3, valueBoxOutput("box_3", width = 12)),
+                    column(width = 3, valueBoxOutput("box_4", width = 12))
+                  )
+              )
+            ),
+            fluidRow(
+              box(title = "Puntos de atención financieros", solidHeader = TRUE, width = 3, height = "1200px", collapsible = TRUE, status = "primary", highchartOutput("graf_1", height = "470px")),
+
+
+              box(title = "Mapa de concentración",
+                  solidHeader = T,
+                  width = 9,
+                  height = "1200px",
+                  collapsible = T,
+                  status = "primary",
+                  leafletOutput("map"),
+                  selectizeInput(inputId = "selected_locations", ###CREA EL WIDGET QUE PERMITE SELECCIONAR LOS DEPARTAMENTOS
+                                 label = "Selected:",
+                                 choices = c("BENI","CHUQUISACA","COCHABAMBA","LA PAZ","ORURO","PANDO","POTOSI","SANTA CRUZ","TARIJA" ),
+                                 selected = NULL,
+                                 multiple = TRUE)
+                  )
+
+            ),
+            fluidRow(
+              box(title = "Lista clientes jurídicos y saldos en C.A.", solidHeader = TRUE, width = 12, collapsible = TRUE, status = "primary", DTOutput("tabla", height = "470px"))
+            ),
+    ),
+    # Pestaña 2: Clientes y Saldos
+    tabItem(tabName = 'menu_2',
+            fluidRow(
+              box(title = "Lista de Clientes Jurídicos y Saldos en C.A.", solidHeader = TRUE, width = 12, status = "primary", DTOutput("clientes_saldos", height = "250px"))
+            ),
+            fluidRow(
+              box(title = "Depósitos a Plazo Fijo", solidHeader = TRUE, width = 6, status = "primary", DTOutput("depositos_plazo", height = "250px")),
+              box(title = "Tipo de Actividad Económica", solidHeader = TRUE, width = 6, status = "primary", DTOutput("tipo_actividad", height = "250px"))
+            ),
+            fluidRow(
+              box(title = "Movimiento Transaccional por Tipo", solidHeader = TRUE, width = 12, status = "primary", highchartOutput("movimiento_transaccional", height = "400px"))
+            )
+    ),
+    # Pestaña 3: Lista de Clientes
+    # UI - pestaña 3
+    tabItem(
+      tabName = "menu_3",
+      fluidRow(
+        column(12,
+               box(title = "Lista de Personas Jurídicas", width = 12,
+                   DTOutput("tabla_clientes"))
+        )
+      ),
+
+      fluidRow(
+        column(6,
+               box(title = "Exploración de Carpetas", width = 12,
+                   uiOutput("selector_carpetas")
+               ),
+               box(title = "Seleccionar Documento PDF", width = 12,
+                   uiOutput("selector_pdfs")
+               )
+        ),
+        column(6,
+               box(title = "Cargar Nuevo Archivo PDF", width = 12,
+                   fileInput("archivo_subido", "Subir archivo PDF", accept = ".pdf"),
+                   actionButton("subir_btn", "Guardar archivo en carpeta del cliente"),
+                   uiOutput("mensaje_subida")
+               )
+        )
+      ),
+
+      fluidRow(
+        column(12,
+               box(title = "Visor PDF", width = 12,
+                   uiOutput("visor_pdf"))
+        )
+      )
+    )
+  )
+)
+
+# UI y Server
+ui <- dashboardPage(header, sidebar, body, skin = "purple")
+
+server <- function(input, output, session) {
+
+  # Reactivos comunes
+  reactivo_1 <- reactive({
+    req(input$selected_locations)
+    Informes %>% filter(DEPARTAMENTO %in% input$selected_locations & Informe == "SI")
+  })
+  reactivo_inus <- reactive({
+    req(input$selected_locations)
+    Informes %>% filter(DEPARTAMENTO %in% input$selected_locations)
+  })
+  reac_riesgo_pj <- reactive({
+    req(input$selected_locations)
+    Personas_Juridicas %>% filter(DEPARTAMENTO %in% input$selected_locations) %>% count(TIPO_RIESGO)
+  })
+  reac_dpf <- reactive({
+    req(input$selected_locations)
+    dpf_pj %>% filter(DEPARTAMENTO %in% input$selected_locations)
+  })
+  reac_transac <- reactive({
+    req(input$selected_locations)
+    Personas_Juridicas_Transacciones %>% filter(DEPARTAMENTO %in% input$selected_locations)
+  })
+
+  # ValueBoxes para pestaña 1
+  output$progressBox <- renderValueBox({
+    total_pj <- nrow(Personas_Juridicas %>% filter(DEPARTAMENTO %in% input$selected_locations))
+    total_ros <- nrow(reactivo_1() %>% filter(TIPO_DE_PERSONA == "JURIDICA"))
+    total_inus <- nrow(reactivo_inus() %>% filter(TIPO_DE_PERSONA == "JURIDICA"))
+    valueBox(
+      ifelse(total_pj > 0, paste0(round(total_ros / total_pj, 4) * 100, "%"), "0"),
+      paste(total_inus, "ROS de", total_pj, "Clientes jurídicos"),
+      icon = personas,
+      color = "purple"
+    )
+  })
+  output$progressInus <- renderValueBox({
+    total_ros <- nrow(reactivo_1() %>% filter(TIPO_DE_PERSONA == "JURIDICA"))
+    total_inus <- nrow(reactivo_inus() %>% filter(TIPO_DE_PERSONA == "JURIDICA"))
+    valueBox(
+      ifelse(total_inus > 0, paste0(round(total_ros / total_inus, 3) * 100, "%"), "0"),
+      paste(total_ros, "ROS de", total_inus, "Inusuales"),
+      icon = personas,
+      color = "purple"
+    )
+  })
+  output$box_1 <- renderValueBox({
+    alto_riesgo <- reac_riesgo_pj() %>% filter(TIPO_RIESGO == "RIESGO ALTO") %>% summarise(n = sum(n)) %>% pull(n)
+    total <- sum(reac_riesgo_pj()$n)
+    valueBox(
+      ifelse(!is.na(alto_riesgo) && total > 0, paste0(round(alto_riesgo / total, 3) * 100, "%"), "0"),
+      paste(ifelse(!is.na(alto_riesgo), prettyNum(alto_riesgo, big.mark = ","), "0"), "Alto riesgo"),
+      icon = tags$i(class = "fa fa-university", style = "font-size: 45px; color: white; vertical-align: super;"),
+      color = "purple"
+    )
+  })
+  output$box_2 <- renderValueBox({
+    medio_riesgo <- reac_riesgo_pj() %>% filter(TIPO_RIESGO == "RIESGO MEDIO") %>% summarise(n = sum(n)) %>% pull(n)
+    total <- sum(reac_riesgo_pj()$n)
+    valueBox(
+      ifelse(!is.na(medio_riesgo) && total > 0, paste0(round(medio_riesgo / total, 3) * 100, "%"), "0"),
+      paste(ifelse(!is.na(medio_riesgo), prettyNum(medio_riesgo, big.mark = ","), "0"), "Medio riesgo"),
+      icon = tags$i(class = "fa fa-university", style = "font-size: 45px; color: white; vertical-align: super;"),
+      color = "purple"
+    )
+  })
+  output$box_3 <- renderValueBox({
+    bajo_riesgo <- reac_riesgo_pj() %>% filter(TIPO_RIESGO == "RIESGO BAJO") %>% summarise(n = sum(n)) %>% pull(n)
+    total <- sum(reac_riesgo_pj()$n)
+    valueBox(
+      ifelse(!is.na(bajo_riesgo) && total > 0, paste0(round(bajo_riesgo / total, 3) * 100, "%"), "0"),
+      paste(ifelse(!is.na(bajo_riesgo), prettyNum(bajo_riesgo, big.mark = ","), "0"), "Bajo riesgo"),
+      icon = tags$i(class = "fa fa-university", style = "font-size: 15px; color: white; vertical-align: super;"),
+      color = "purple"
+    )
+  })
+  output$box_4 <- renderValueBox({
+    valueBox(
+      value = nrow(reac_dpf()),
+      subtitle = "Cantidad DPF",
+      icon = tags$i(class = "fa fa-money", style = "font-size: 20px; color: white; vertical-align: super;"),
+      color = "purple"
+    )
+  })
+
+  # Gráfico puntos de atención financieros
+  output$graf_1 <- renderHighchart({
+    req(input$selected_locations)
+    resumen <- arch_ubicaciones %>% filter(Departamento %in% input$selected_locations)
+    resumen1 <- resumen %>% count(Tipo_de_Oficina, sort = TRUE) %>% mutate(Cantidad = paste("Cantidad:", nrow(resumen)))
+    hchart(resumen1, "bar", hcaes(x = Tipo_de_Oficina, y = n, group = Cantidad), stacking = list(enabled = TRUE), dataLabels = list(enabled = TRUE)) %>%
+      hc_add_theme(hc_theme_google()) %>%
+      hc_colors(c("orange", "#56147DFF")) %>%
+      hc_yAxis(title = list(text = "")) %>%
+      hc_xAxis(title = list(text = ""))
+  })
+
+  # Mapa de concentración
+
+  output$map <- renderLeaflet({
+    res_cli<-Personas_Juridicas %>% filter(DEPARTAMENTO!="NO DEFINIDO") %>% count(DEPARTAMENTO)
+    names(res_cli)[2]="densidad"
+    arch_shape<- arch_shape %>% left_join(res_cli,by=c("NAME_1"="DEPARTAMENTO"))
+    percentiles<-quantile(res_cli$densidad, probs = c(0,0.10, 0.30, 0.50, 0.60,0.7,0.8, 0.90), type = 7)
+    bins <- c(round(as.numeric(percentiles)), Inf)
+    pal <- colorBin("YlOrRd", domain = arch_shape$densidad, bins = bins)
+    getColor <- function(arch_ubicaciones1) {
+      sapply(arch_ubicaciones1$Departamento, function(Departamento) {
+        if(Departamento == "COCHABAMBA") {
+          "red"
+        } else if(Departamento == "BENI"){
+          "orange"
+        }else if(Departamento == "TARIJA"){
+          "orange"
+        } else {
+          "green"
+        } })
+    }
+
+    ######PERSONALIZANDO ICONOS DE LOS MAPAS######
+    pers_icon <- function(arch_ubicaciones1) {
+      sapply(arch_ubicaciones1$Tipo_de_Oficina_1, function(Tipo_de_Oficina_1) {
+        switch(as.character(Tipo_de_Oficina_1),
+               "1" = "house-laptop",
+               "2" = "landmark",
+               "3" = "address-card",
+               "4" = "calculator",
+               "money")
+      }
+
+      )
+    }
+    #
+    icons <- awesomeIcons(
+      icon = pers_icon(arch_ubicaciones),
+      iconColor = 'black',
+      library = 'fa',
+      markerColor = getColor(arch_ubicaciones)
+    )
+
+    ###MAPA#####
+    leaflet(arch_shape) %>%
+      addTiles() %>%
+      addPolygons(
+        fillColor = ~pal(densidad),
+        fillOpacity = 0.6,
+        color = "white",
+        stroke = TRUE,
+        weight = 1,
+        layerId = ~NAME_1,
+        group = "regions",
+        label = ~paste(NAME_1,": ",densidad),
+        dashArray = "3",
+        highlight = highlightOptions(
+          weight = 3,
+          dashArray = "",
+          color = "red",
+          bringToFront = TRUE
+        )) %>%
+
+      addPolygons(
+        fillColor = "#8a038b",
+        fillOpacity = 0.5,
+        weight = 1,
+        color = "black",
+        stroke = TRUE,
+        layerId = ~CNTY_ID,
+        label = ~paste(NAME_1,": ",densidad),
+        group = ~NAME_1)%>%
+
+      addAwesomeMarkers(lng=~arch_ubicaciones$Longitud,
+                        lat=~arch_ubicaciones$Latitud,
+                        label = ~htmlEscape(arch_ubicaciones$Nombre_Oficina),
+                        layerId = ~arch_ubicaciones$Nombre_Oficina,
+                        popup = paste(
+                          "<b style='color:red'>Tipo de Oficina:</b>",arch_ubicaciones$Tipo_de_Oficina,
+                          "<br/>",
+                          "<b style='color:#56147DFF'>Nombre de Oficina</b>:",arch_ubicaciones$Nombre_Oficina,
+                          "<br/>",
+                          "<b style='color:#56147DFF'>Ciudad/Municipio:</b>",arch_ubicaciones$Ciudad,
+                          "<br/>",
+                          "<b style='color:#56147DFF'>Dirección:</b>",arch_ubicaciones$Direccion,
+                          "<br/>"
+                        ), icon = icons ,clusterOptions = markerClusterOptions()
+      ) %>%
+
+      hideGroup(group = arch_shape$NAME_1) %>% addLegend(pal = pal, values = ~densidad, opacity = 0.7, title = "Clientes",
+                                                         position = "bottomright") %>% addResetMapButton()
+  })
+
+  proxy <- leafletProxy("map")
+  selected <- reactiveValues(groups = vector())
+  observeEvent(input$map_shape_click, {
+    if(input$map_shape_click$group == "regions"){
+      selected$groups <- c(selected$groups, input$map_shape_click$id)
+      proxy %>% showGroup(group = input$map_shape_click$id)
+    } else {
+      selected$groups <- setdiff(selected$groups, input$map_shape_click$group)
+      proxy %>% hideGroup(group = input$map_shape_click$group)
+    }
+    updateSelectizeInput(session,
+                         inputId = "selected_locations",
+                         choices = arch_shape$NAME_1,
+                         selected = selected$groups)
+  })
+
+  observeEvent(input$selected_locations, {
+    removed_via_selectInput <- setdiff(selected$groups, input$selected_locations)
+    added_via_selectInput <- setdiff(input$selected_locations, selected$groups)
+
+    if(length(removed_via_selectInput) > 0){
+      selected$groups <- input$selected_locations
+      proxy %>% hideGroup(group = removed_via_selectInput)
+    }
+
+    if(length(added_via_selectInput) > 0){
+      selected$groups <- input$selected_locations
+      proxy %>% showGroup(group = added_via_selectInput)
+    }
+  }, ignoreNULL = FALSE)
+
+
+
+  # Pestaña 2: Tablas Clientes y Saldos
+  output$clientes_saldos <- renderDT({
+    datatable(Personas_Juridicas %>% select(razonSocial, saldoBs), options = list(scrollX = TRUE, scrollY = "250px"))
+  })
+
+  output$depositos_plazo <- renderDT({
+    datatable(dpf_pj %>% select(razonSocial, saldoBs), options = list(scrollX = TRUE, scrollY = "250px"))
+  })
+
+  output$tipo_actividad <- renderDT({
+    datatable(Personas_Juridicas %>% select(actividadEconomica, saldoBs), options = list(scrollX = TRUE, scrollY = "250px"))
+  })
+
+  output$movimiento_transaccional <- renderHighchart({
+    req(nrow(Personas_Juridicas_Transacciones) > 0)
+    datos <- Personas_Juridicas_Transacciones %>%
+      group_by(fechaTransaccion1, descConceptoMovimiento) %>%
+      summarise(importeBs = sum(importeBs, na.rm = TRUE), .groups = "drop")
+
+    hchart(datos, "column", hcaes(x = fechaTransaccion1, y = importeBs, group = descConceptoMovimiento)) %>%
+      hc_add_theme(hc_theme_google()) %>%
+      hc_yAxis(title = list(text = "Importe (Bs)")) %>%
+      hc_xAxis(title = list(text = "Fecha"))
+  })
+
+  # Pestaña 3: Lista completa de clientes
+  output$lista_clientes <- renderDT({
+    datatable(Personas_Juridicas %>% select(razonSocial, numeroDocumento), options = list(scrollX = TRUE, scrollY = "600px"))
+  })
+
+######################################
+  ##########CARPETAS#########
+
+  data_clientes <- Personas_Juridicas %>%
+    select(razonSocial, numeroDocumento, naturalezaJuridica, sector)
+
+  output$tabla_clientes <- renderDT({
+    datatable(data_clientes, selection = 'single', options = list(scrollX = TRUE))
+  })
+
+  cliente_seleccionado <- reactive({
+    req(input$tabla_clientes_rows_selected)
+    data_clientes[input$tabla_clientes_rows_selected, ]
+  })
+
+  carpetas_cliente <- reactive({
+    cliente <- cliente_seleccionado()
+    req(cliente)
+    cliente_dir <- file.path("documentos", as.character(cliente$numeroDocumento))
+    if(!dir.exists(cliente_dir)) return(character(0))
+    list.dirs(cliente_dir, full.names = FALSE, recursive = FALSE)
+  })
+
+  output$selector_carpetas <- renderUI({
+    carpetas <- carpetas_cliente()
+    if(length(carpetas) == 0) {
+      return(tags$em("No se encontraron carpetas para este cliente"))
+    }
+    selectInput("carpeta_seleccionada", "Seleccione Carpeta:", choices = carpetas)
+  })
+
+  archivos_en_carpeta <- reactive({
+    cliente <- cliente_seleccionado()
+    req(cliente, input$carpeta_seleccionada)
+    carpeta <- input$carpeta_seleccionada
+    dir_pdf <- file.path("documentos", as.character(cliente$numeroDocumento), carpeta)
+    if(!dir.exists(dir_pdf)) return(character(0))
+    list.files(dir_pdf, pattern = "\\.pdf$", full.names = FALSE, ignore.case = TRUE)
+  })
+
+  output$selector_pdfs <- renderUI({
+    archivos <- archivos_en_carpeta()
+    if(length(archivos) == 0) {
+      return(tags$em("No hay documentos PDF en la carpeta seleccionada"))
+    }
+    selectInput("pdf_seleccionado", "Seleccione Documento PDF:", choices = archivos)
+  })
+
+  output$visor_pdf <- renderUI({
+    req(input$pdf_seleccionado)
+    cliente <- cliente_seleccionado()
+    req(cliente)
+    carpeta <- input$carpeta_seleccionada
+    src <- file.path("documentos", as.character(cliente$numeroDocumento), carpeta, input$pdf_seleccionado)
+    src_url <- URLencode(src)  # Correg ido aquí
+    tags$iframe(src = src_url, style = "width:100%; height:600px;", frameborder = 0)
+  })
+
+  # Subida de archivos
+  observeEvent(input$subir_btn, {
+    req(input$archivo_subido)
+    req(cliente_seleccionado())
+    req(input$carpeta_seleccionada)
+
+    cliente <- cliente_seleccionado()
+    carpeta <- input$carpeta_seleccionada
+
+    dir_cliente <- file.path("documentos", as.character(cliente$numeroDocumento), carpeta)
+    dir.create(dir_cliente, recursive = TRUE, showWarnings = FALSE)
+
+    archivo_destino <- file.path(dir_cliente, input$archivo_subido$name)
+
+    success <- file.copy(from = input$archivo_subido$datapath, to = archivo_destino, overwrite = TRUE)
+
+    if(success) {
+      output$mensaje_subida <- renderUI({
+        tags$div(style = "color:green;", "Archivo subido correctamente.")
+      })
+
+      # Actualizar selector de archivos
+      archivos_act <- list.files(dir_cliente, pattern = "\\.pdf$", full.names = FALSE, ignore.case = TRUE)
+      updateSelectInput(session, "pdf_seleccionado", choices = archivos_act, selected = input$archivo_subido$name)
+    } else {
+      output$mensaje_subida <- renderUI({
+        tags$div(style = "color:red;", "Error al subir el archivo.")
+      })
+    }
+  })
+
+  # Registrar carpeta documentos para servir estáticos
+  shiny::addResourcePath("documentos", "documentos")
+
+  ###########################
+}
+
+shinyApp(ui, server)
