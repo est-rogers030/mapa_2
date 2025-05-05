@@ -62,6 +62,44 @@ body <- dashboardBody(
     .text-muted { color: white; }
     .selected { background-color: orange !important; }
     .bg-aqua { background-color: #fff !important; }
+
+    /* Bordes naranjas vivos en las cajas */
+      .box {
+        border: 1px solid #56147D !important;
+        box-shadow: 0 0 10px rgba(255, 127, 0, 0.6);
+      }
+
+      /* Título del box con fondo degradado naranja a púrpura y letras blancas */
+    .box-header.with-border {
+      background: linear-gradient(to right, #330099, #660066, #FF6600 ) !important;
+      color: white !important;
+      font-weight: bold;
+      font-size: 18px;
+    }
+/* Contenedor con borde degradado */
+    .gradient-border-box {
+      position: relative;
+      padding: 2px; /* Espesor del "borde" */
+      border-radius: 5px;
+      background: linear-gradient(to right, #FF7F00, #56147D);
+      margin-bottom: 15px;
+    }
+    /* Box real con fondo blanco, para simular el borde */
+    .gradient-border-box > .box {
+      background: white !important;
+      border: none !important;
+      border-radius: 3px;
+      box-shadow: none !important;
+      padding: 10px;
+    }
+    /* Mantener título con fondo púrpura y texto blanco */
+    .gradient-border-box > .box .box-header.with-border {
+      background-color: #56147D !important;
+      color: white !important;
+      border-top-left-radius: 3px;
+      border-top-right-radius: 3px;
+    }
+
   '))),
   tabItems(
     # Pestaña 1: Datos de Cabecera
@@ -73,26 +111,48 @@ body <- dashboardBody(
                     column(width = 6, valueBoxOutput("progressInus", width = 12))
                   )
               ),
-              box(solidHeader = FALSE, title = "Clasificación de clientes", background = NULL, width = 7, status = "warning",
-                  fluidRow(
-                    column(width = 3, valueBoxOutput("box_1", width = 12)),
-                    column(width = 3, valueBoxOutput("box_2", width = 12)),
-                    column(width = 3, valueBoxOutput("box_3", width = 12)),
-                    column(width = 3, valueBoxOutput("box_4", width = 12))
+              box(
+                solidHeader = FALSE,
+                title = "Clasificación de clientes",
+                background = NULL,
+                width = 7,
+                status = "orange",
+                fluidRow(
+                  column(width = 12,
+                         fluidRow(
+                           column(width = 3, offset = 0, style='padding-left:0px; padding-right:0.5px; padding-top:3px; padding-bottom:5px',
+                                  tags$div(class = "value-box-clickable",valueBoxOutput("box_1", width = 12))
+                           )
+                           ,
+                           column(width = 3, offset = 0, style='padding-left:0px; padding-right:0.1px; padding-top:2.9px; padding-bottom:5px',
+                                  tags$div(class = "value-box-clickable",valueBoxOutput("box_2", width = 12))
+                           ),
+                           column(width = 2, offset = 0, style='padding-left:0px; padding-right:0.1px; padding-top:2.9px; padding-bottom:5px',
+                                  tags$div(class = "value-box-clickable",valueBoxOutput("box_3", width = 12))),
+                           column(width = 2, offset = 0, style='padding-left:0px; padding-right:0.1px; padding-top:2.9px; padding-bottom:5px',
+                                  tags$div(class = "value-box-clickable",valueBoxOutput("box_4", width = 12))),
+                           column(width = 2, offset = 0, style='padding-left:0px; padding-right:0.1px; padding-top:2.9px; padding-bottom:5px',
+                                  valueBoxOutput("box_5", width = 12)),
+                         )
                   )
+                )
               )
             ),
             fluidRow(
-              box(title = "Puntos de atención financieros", solidHeader = TRUE, width = 3, height = "1200px", collapsible = TRUE, status = "primary", highchartOutput("graf_1", height = "470px")),
+              box(title = "Puntos de atención financieros", solidHeader = TRUE, width = 3,
+                  style = "min-height: 650px;",
+                  #height = "600px", collapsible = TRUE,
+                  status = "primary", highchartOutput("graf_1", height = "600px")),
 
 
               box(title = "Mapa de concentración",
                   solidHeader = T,
                   width = 9,
-                  height = "1200px",
+                  style = "min-height: 600px;",
+                  #height = "650px",
                   collapsible = T,
                   status = "primary",
-                  leafletOutput("map"),
+                  leafletOutput("map", height = "600px"),
                   selectizeInput(inputId = "selected_locations", ###CREA EL WIDGET QUE PERMITE SELECCIONAR LOS DEPARTAMENTOS
                                  label = "Selected:",
                                  choices = c("BENI","CHUQUISACA","COCHABAMBA","LA PAZ","ORURO","PANDO","POTOSI","SANTA CRUZ","TARIJA" ),
@@ -102,7 +162,8 @@ body <- dashboardBody(
 
             ),
             fluidRow(
-              box(title = "Lista clientes jurídicos y saldos en C.A.", solidHeader = TRUE, width = 12, collapsible = TRUE, status = "primary", DTOutput("tabla", height = "470px"))
+              box(title = "Lista clientes jurídicos y saldos en C.A.", solidHeader = TRUE, width = 12, collapsible = TRUE,
+                  status = "primary", DTOutput("tabla", height = "470px"))
             ),
     ),
     # Pestaña 2: Clientes y Saldos
@@ -115,7 +176,7 @@ body <- dashboardBody(
               box(title = "Tipo de Actividad Económica", solidHeader = TRUE, width = 6, status = "primary", DTOutput("tipo_actividad", height = "250px"))
             ),
             fluidRow(
-              box(title = "Movimiento Transaccional por Tipo", solidHeader = TRUE, width = 12, status = "primary", highchartOutput("movimiento_transaccional", height = "400px"))
+              box(title = "Movimiento Transaccional por Tipo", solidHeader = TRUE, width = 12, status = "primary", highchartOutput("graf_transac", height = "400px"))
             )
     ),
     # Pestaña 3: Lista de Clientes
@@ -124,32 +185,35 @@ body <- dashboardBody(
       tabName = "menu_3",
       fluidRow(
         column(12,
-               box(title = "Lista de Personas Jurídicas", width = 12,
+               box(title = "Lista de Personas Jurídicas",
+                   width = 12, status = "warning",
                    DTOutput("tabla_clientes"))
         )
       ),
 
       fluidRow(
-        column(6,
-               box(title = "Exploración de Carpetas", width = 12,
-                   uiOutput("selector_carpetas")
-               ),
-               box(title = "Seleccionar Documento PDF", width = 12,
-                   uiOutput("selector_pdfs")
-               )
-        ),
-        column(6,
-               box(title = "Cargar Nuevo Archivo PDF", width = 12,
-                   fileInput("archivo_subido", "Subir archivo PDF", accept = ".pdf"),
-                   actionButton("subir_btn", "Guardar archivo en carpeta del cliente"),
-                   uiOutput("mensaje_subida")
-               )
-        )
+                column(6,
+                       box(title = "Exploración de Carpetas y Archivos",
+                           width = 12, status = "primary", solidHeader = TRUE,
+                           uiOutput("selector_carpetas"),
+                           uiOutput("selector_pdfs")
+                       )
+                ),
+                column(6,
+
+                       box(title = "Cargar Nuevo Archivo PDF",
+                           width = 12, status = "primary", solidHeader = TRUE,
+                           fileInput("archivo_subido", "Subir archivo PDF", accept = ".pdf"),
+                           actionButton("subir_btn", "Guardar archivo en carpeta del cliente"),
+                           uiOutput("mensaje_subida")
+                       )
+                )
       ),
 
       fluidRow(
         column(12,
-               box(title = "Visor PDF", width = 12,
+               box(title = "Visor PDF",
+                   width = 12, status = "orange",
                    uiOutput("visor_pdf"))
         )
       )
@@ -213,8 +277,8 @@ server <- function(input, output, session) {
       ifelse(!is.na(alto_riesgo) && total > 0, paste0(round(alto_riesgo / total, 3) * 100, "%"), "0"),
       paste(ifelse(!is.na(alto_riesgo), prettyNum(alto_riesgo, big.mark = ","), "0"), "Alto riesgo"),
       icon = tags$i(class = "fa fa-university", style = "font-size: 45px; color: white; vertical-align: super;"),
-      color = "purple"
-    )
+      color = color1()
+      )
   })
   output$box_2 <- renderValueBox({
     medio_riesgo <- reac_riesgo_pj() %>% filter(TIPO_RIESGO == "RIESGO MEDIO") %>% summarise(n = sum(n)) %>% pull(n)
@@ -223,7 +287,7 @@ server <- function(input, output, session) {
       ifelse(!is.na(medio_riesgo) && total > 0, paste0(round(medio_riesgo / total, 3) * 100, "%"), "0"),
       paste(ifelse(!is.na(medio_riesgo), prettyNum(medio_riesgo, big.mark = ","), "0"), "Medio riesgo"),
       icon = tags$i(class = "fa fa-university", style = "font-size: 45px; color: white; vertical-align: super;"),
-      color = "purple"
+      color = color2()
     )
   })
   output$box_3 <- renderValueBox({
@@ -233,15 +297,21 @@ server <- function(input, output, session) {
       ifelse(!is.na(bajo_riesgo) && total > 0, paste0(round(bajo_riesgo / total, 3) * 100, "%"), "0"),
       paste(ifelse(!is.na(bajo_riesgo), prettyNum(bajo_riesgo, big.mark = ","), "0"), "Bajo riesgo"),
       icon = tags$i(class = "fa fa-university", style = "font-size: 15px; color: white; vertical-align: super;"),
-      color = "purple"
-    )
+      color = color3()    )
   })
   output$box_4 <- renderValueBox({
     valueBox(
       value = nrow(reac_dpf()),
       subtitle = "Cantidad DPF",
       icon = tags$i(class = "fa fa-money", style = "font-size: 20px; color: white; vertical-align: super;"),
-      color = "purple"
+      color = color4()
+    )
+  })
+
+  output$box_5<- renderValueBox({
+    valueBox(
+      subtitle = "",
+      value=NULL
     )
   })
 
@@ -381,31 +451,211 @@ server <- function(input, output, session) {
     }
   }, ignoreNULL = FALSE)
 
+##############################################################
+  ##########TABLA RESULTANTE TIPO DE RIESGO###############
+  output$tabla <- renderDT({
+    if (is.null(clicked_box())) {
+      return(NULL)
+    }
 
+    if (clicked_box() == "box1") {
+      datos_Res<-  reactivo_box_1()
+      datatable(datos_Res[,c(5,7,20,23,24)]
+                ,options = list(scrollX = TRUE,
+                                scrollY = "250px")) %>% formatStyle(
+                                  columns = c("razonSocial", "naturalezaJuridica", "sector","DPF"),
+                                  target = 'cell',
+                                  fontSize = '10px') %>% formatCurrency("saldoBs", currency = "Bs", digits = 0) %>% formatStyle("saldoBs", backgroundColor = "#ffe0b8")
+    }
+    else if (clicked_box() == "box2") {
+      datos_Res<-  reactivo_box_2()
+      datatable(datos_Res[,c(5,7,20,23,24)]
+                ,options = list(scrollX = TRUE,
+                                scrollY = "250px")) %>% formatStyle(
+                                  columns = c("razonSocial", "naturalezaJuridica", "sector","DPF"),
+                                  target = 'cell',
+                                  fontSize = '10px')%>% formatCurrency("saldoBs", currency = "Bs", digits = 0) %>% formatStyle("saldoBs", backgroundColor = "#ffe0b8")
+    }
+    else if (clicked_box() == "box3") {
+      datos_Res<-  reactivo_box_3()
+      datatable(datos_Res[,c(5,7,20,23,24)]
+                ,options = list(scrollX = TRUE,
+                                scrollY = "250px")) %>% formatStyle(
+                                  columns = c("razonSocial", "naturalezaJuridica", "sector","DPF"),
+                                  target = 'cell',
+                                  fontSize = '10px')%>% formatCurrency("saldoBs", currency = "Bs", digits = 0) %>% formatStyle("saldoBs", backgroundColor = "#ffe0b8")
+    }
+    else if(clicked_box() == "box4"){
+      datos_Res<-reactivo_box_4()
+      datatable(datos_Res[,c(15,7,10,12,8)]
+                ,options = list(scrollX = TRUE,
+                                scrollY = "250px")) %>% formatStyle(
+                                  columns = c("razonSocial", "plazo","descEstadoProducto", "fechaDevengado"),
+                                  target = 'cell',
+                                  fontSize = '10px')%>% formatCurrency("Valor", currency = "Bs", digits = 0) %>% formatStyle("Valor", backgroundColor = "#ffe0b8")
+
+    }
+  })
+
+  click_count <- reactiveVal(0)
+  color1 <- reactiveVal("purple")
+  color2 <- reactiveVal("purple")
+  color3 <- reactiveVal("purple")
+  color4 <- reactiveVal("purple")
+
+  clicked_box <- reactiveVal(NULL)
+  reset_colors <- function() {
+    color1("purple")
+    color2("purple")
+    color3("purple")
+    color4("purple")
+  }
+
+  change_color <- function(clicked) {
+    reset_colors()
+    if (clicked == "box1") color1("orange")
+    else if (clicked == "box2") color2("orange")
+    else if (clicked == "box3") color3("orange")
+    else if (clicked == "box4") color4("orange")
+  }
+
+  observeEvent(input$box_1, {
+    click_count(click_count() + 1)
+    clicked_box("box1")
+    change_color("box1")
+  })
+  observeEvent(input$box_2, {
+    click_count(click_count() + 1)
+    clicked_box("box2")
+    change_color("box2")
+  })
+
+  observeEvent(input$box_3, {
+    click_count(click_count() + 1)
+    clicked_box("box3")
+    change_color("box3")
+  })
+  observeEvent(input$box_4, {
+    click_count(click_count() + 1)
+    clicked_box("box4")
+    change_color("box4")
+  })
+
+
+  observe({
+    runjs('$("#box_1").on("click", function() {
+      Shiny.onInputChange("box_1", Math.random());
+    })')
+
+    runjs('$("#box_2").on("click", function() {
+      Shiny.onInputChange("box_2", Math.random());
+    })')
+
+    runjs('$("#box_3").on("click", function() {
+      Shiny.onInputChange("box_3", Math.random());
+    })')
+    runjs('$("#box_4").on("click", function() {
+      Shiny.onInputChange("box_4", Math.random());
+    })')
+  })
+
+
+  reactivo_box_1<- reactive({
+    Personas_Juridicas %>% filter(DEPARTAMENTO %in% input$selected_locations & TIPO_RIESGO=="RIESGO ALTO") %>% arrange(desc(saldoBs))
+  })
+  reactivo_box_2<- reactive({
+    Personas_Juridicas %>% filter(DEPARTAMENTO %in% input$selected_locations & TIPO_RIESGO=="RIESGO MEDIO") %>% arrange(desc(saldoBs))
+  })
+  reactivo_box_3<- reactive({
+    Personas_Juridicas %>% filter(DEPARTAMENTO %in% input$selected_locations & TIPO_RIESGO=="RIESGO BAJO") %>% arrange(desc(saldoBs))
+  })
+  reactivo_box_4<- reactive({
+    datos_Res<-dpf_pj %>% filter(DEPARTAMENTO %in% input$selected_locations) %>% arrange(desc(saldoBs))
+    names(datos_Res)[8]="Valor"
+    datos_Res
+  })
+
+  reactivo_datos_1<- reactive({
+    filas_seleccionadas <- input$tabla_rows_selected
+    filas <- reactivo_box_1()[filas_seleccionadas, ]
+  })
+  reactivo_datos_2<- reactive({
+    filas_seleccionadas <- input$tabla_rows_selected
+    filas <- reactivo_box_2()[filas_seleccionadas, ]
+  })
+  reactivo_datos_3<- reactive({
+    filas_seleccionadas <- input$tabla_rows_selected
+    filas <- reactivo_box_3()[filas_seleccionadas, ]
+  })
+  reactivo_datos_4<- reactive({
+    filas_seleccionadas <- input$tabla_rows_selected
+    filas <- reactivo_box_4()[filas_seleccionadas, ]
+  })
+
+
+
+  ###############################################################################################################
 
   # Pestaña 2: Tablas Clientes y Saldos
+  # Renderizar la tabla de clientes con las columnas requeridas
   output$clientes_saldos <- renderDT({
-    datatable(Personas_Juridicas %>% select(razonSocial, saldoBs), options = list(scrollX = TRUE, scrollY = "250px"))
+    datatable(
+      Personas_Juridicas %>%
+        select(DPF, razonSocial, objetoSocial1, TIPO_RIESGO, saldoBs) %>%
+        mutate(DPF = factor(DPF, levels = c("SI", "NO"))),  # Asegúrate de que "si" esté primero
+      options = list(
+        scrollX = TRUE,
+        scrollY = "250px",
+        order = list(list(0, 'asc'), list(1, 'asc'))  # Ordenar por DPF y luego por razonSocial
+      ),
+      selection = 'multiple'  # Permitir selección múltiple
+    )
   })
 
+  # Renderizar la tabla de depósitos a plazo basada en la selección de la primera tabla
   output$depositos_plazo <- renderDT({
-    datatable(dpf_pj %>% select(razonSocial, saldoBs), options = list(scrollX = TRUE, scrollY = "250px"))
+    req(input$clientes_saldos_rows_selected)  # Asegurarse de que hay filas seleccionadas
+    selected_rows <- input$clientes_saldos_rows_selected
+
+    datatable(
+      dpf_pj %>% filter(razonSocial %in% Personas_Juridicas$razonSocial[selected_rows]) %>% select(razonSocial, saldoBs),
+      options = list(scrollX = TRUE, scrollY = "250px")
+    )
   })
 
+  # Renderizar la tabla de tipo de actividad basada en la selección de la primera tabla
   output$tipo_actividad <- renderDT({
-    datatable(Personas_Juridicas %>% select(actividadEconomica, saldoBs), options = list(scrollX = TRUE, scrollY = "250px"))
+    req(input$clientes_saldos_rows_selected)  # Asegurarse de que hay filas seleccionadas
+    selected_rows <- input$clientes_saldos_rows_selected
+
+    datatable(
+      Personas_Juridicas %>% filter(razonSocial %in% Personas_Juridicas$razonSocial[selected_rows]) %>% select(actividadEconomica, saldoBs),
+      options = list(scrollX = TRUE, scrollY = "250px")
+    )
   })
 
-  output$movimiento_transaccional <- renderHighchart({
-    req(nrow(Personas_Juridicas_Transacciones) > 0)
-    datos <- Personas_Juridicas_Transacciones %>%
-      group_by(fechaTransaccion1, descConceptoMovimiento) %>%
-      summarise(importeBs = sum(importeBs, na.rm = TRUE), .groups = "drop")
+  output$graf_transac <- renderHighchart({
+    req(input$clientes_saldos_rows_selected)  # Asegurarse de que hay filas seleccionadas en la tabla de clientes
+    selected_rows <- input$clientes_saldos_rows_selected
 
-    hchart(datos, "column", hcaes(x = fechaTransaccion1, y = importeBs, group = descConceptoMovimiento)) %>%
-      hc_add_theme(hc_theme_google()) %>%
-      hc_yAxis(title = list(text = "Importe (Bs)")) %>%
-      hc_xAxis(title = list(text = "Fecha"))
+    # Filtrar datos según la selección
+    datos <- Personas_Juridicas_Transacciones %>%
+      filter(codPersona %in% Personas_Juridicas$codPersona[selected_rows])  # Filtrar por codPersona de las filas seleccionadas
+
+    # Contar transacciones
+    datos_res <- datos %>% count(fechaTransaccion1, descConceptoMovimiento, wt = importeBs)
+
+    if (nrow(datos_res) > 0) {
+      # Generar gráfico
+      hchart(datos_res, "spline", hcaes(x = fechaTransaccion1, y = n, group = descConceptoMovimiento),
+             dataLabels = list(enabled = FALSE)) %>%
+        hc_add_theme(hc_theme_google()) %>%
+        hc_colors(c("#56147DFF", "orange", "#40498EFF", "#C73D73FF", "#FA7D5EFF", "#FEAA74FF",
+                    "#FCECAEFF", "#521E4DFF", "#701F57FF", "#8E1D5BFF", "#CB1B4FFF", "#E13342FF",
+                    "#EE543FFF", "#F37651FF", "#F5966DFF", "#F6B48EFF", "#F7D0B4FF")) %>%
+        hc_yAxis(title = list(text = "")) %>%
+        hc_xAxis(title = list(text = ""))
+    }
   })
 
   # Pestaña 3: Lista completa de clientes
@@ -417,7 +667,7 @@ server <- function(input, output, session) {
   ##########CARPETAS#########
 
   data_clientes <- Personas_Juridicas %>%
-    select(razonSocial, numeroDocumento, naturalezaJuridica, sector)
+    select(razonSocial, numeroDocumento, objetoSocial1, naturalezaJuridica, sector)
 
   output$tabla_clientes <- renderDT({
     datatable(data_clientes, selection = 'single', options = list(scrollX = TRUE))
